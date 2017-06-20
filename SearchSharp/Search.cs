@@ -1,13 +1,16 @@
-﻿using System;
+﻿using SearchSharp.Storage.NTFS;
+using System;
 using System.Collections.Generic;
 
 namespace SearchSharp
 {
     public class Search
     {
-        private List<string> GetAllFiles()
+        public void GetAllFiles()
         {
-            return new List<string>();
+            NTFSVolume v = new NTFSVolume();
+            v.ReadMFT("C:\\");
+
         }
     }
 }

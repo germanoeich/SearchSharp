@@ -13,6 +13,7 @@ namespace SearchSharp.Storage.NTFS
     public class NTFSVolume
     {
         #region Codes used with P/Invoke
+        internal const int ERROR_HANDLE_EOF = 38;
         private const UInt32 GENERIC_READ = 0x80000000;
         private const UInt32 GENERIC_WRITE = 0x40000000;
         private const UInt32 FILE_SHARE_READ = 0x00000001;
@@ -33,16 +34,102 @@ namespace SearchSharp.Storage.NTFS
             privilegesManager = new BackupSemanticsPrivilegeManager();
         }
 
-        private void ReadMFT(string drivePath)
+        public void ReadMFT(string drivePath)
         {
             if (!privilegesManager.HasBackupAndRestorePrivileges)
             {
-                return;
+                using (var volume = GetVolumeHandle(drivePath))
+                {
+                    ReadMft(volume);
+                }
             }
 
         }
 
-        internal static SafeFileHandle GetVolumeHandle(string pathToVolume, EFileAccess access = EFileAccess.AccessSystemSecurity | EFileAccess.GenericRead | EFileAccess.ReadControl)
+        private unsafe bool ReadMft(SafeHandle volume)
+        {
+            var outputBufferSize = 1024 * 1024;
+            var input = new MFTInputQuery();
+            //var usnRecord = new UsnRecordV2();
+
+            var outputBuffer = new byte[outputBufferSize];
+
+            var okay = true;
+            var doneReading = false;
+
+            try
+            {
+                fixed (byte* pOutput = outputBuffer)
+                {
+                    input.StartFileReferenceNumber = 0;
+                    input.LowUsn = 0;
+                    input.HighUsn = long.MaxValue;
+
+                    using (var stream = new MemoryStream(outputBuffer, true))
+                    {
+                        while (!doneReading)
+                        {
+                            var bytesRead = 0U;
+                            okay = PInvoke.DeviceIoControl
+                            (
+                              volume.DangerousGetHandle(),
+                              DeviceIOControlCode.FsctlEnumUsnData,
+                              (byte*)&input.StartFileReferenceNumber,
+                              (uint)Marshal.SizeOf(input),
+                              pOutput,
+                              (uint)outputBufferSize,
+                              out bytesRead,
+                              IntPtr.Zero
+                            );
+
+                            if (!okay)
+                            {
+                                var error = Marshal.GetLastWin32Error();
+                                okay = error == ERROR_HANDLE_EOF;
+                                if (!okay)
+                                {
+                                    throw new Win32Exception(error);
+                                }
+                                else
+                                {
+                                    doneReading = true;
+                                }
+                            }
+
+                            StreamReader sr = new StreamReader(stream);
+                            File.AppendAllText("output.txt", sr.ReadToEnd());
+
+                            //input.StartFileReferenceNumber = stream.ReadULong();
+                            //while (stream.Position < bytesRead)
+                            //{
+
+                            //}
+                            //{
+                            //    usnRecord.Read(stream);
+
+                            //    //-->>>>>>>>>>>>>>>>> 
+                            //    //--> just an example of reading out the record...
+                            //    Console.WriteLine("FRN:" + usnRecord.FileReferenceNumber.ToString());
+                            //    Console.WriteLine("Parent FRN:" + usnRecord.ParentFileReferenceNumber.ToString());
+                            //    Console.WriteLine("File name:" + usnRecord.FileName);
+                            //    Console.WriteLine("Attributes: " + (EFileAttributes)usnRecord.FileAttributes);
+                            //    Console.WriteLine("Timestamp:" + usnRecord.TimeStamp);
+                            //    //-->>>>>>>>>>>>>>>>>>> 
+                            //}
+                            stream.Seek(0, SeekOrigin.Begin);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.Write(ex);
+                okay = false;
+            }
+            return okay;
+        }
+
+        internal SafeFileHandle GetVolumeHandle(string pathToVolume, EFileAccess access = EFileAccess.AccessSystemSecurity | EFileAccess.GenericRead | EFileAccess.ReadControl)
         {
             var attributes = (uint)EFileAttributes.BackupSemantics;
             var handle = PInvoke.CreateFile(pathToVolume, access, 7U, IntPtr.Zero, (uint)ECreationDisposition.OpenExisting, attributes, IntPtr.Zero);

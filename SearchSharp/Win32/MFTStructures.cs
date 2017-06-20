@@ -5,6 +5,15 @@ using System.Text;
 
 namespace SearchSharp.Win32
 {
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct MFTInputQuery
+    {
+        public ulong StartFileReferenceNumber;
+        public long LowUsn;
+        public long HighUsn;
+    }
+
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     public struct BY_HANDLE_FILE_INFORMATION
     {

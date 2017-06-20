@@ -36,7 +36,7 @@ namespace SearchSharp.Storage.NTFS
         internal const uint TOKEN_ADJUST_PRIVILEGES = 0x0020;
         internal const int TOKEN_QUERY = 0x00000008;
         #endregion
-        
+
 
         private bool CheckAndAssignPrivileges()
         {
@@ -85,4 +85,4 @@ namespace SearchSharp.Storage.NTFS
         }
     }
 }
-}
+
