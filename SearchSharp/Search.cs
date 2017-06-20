@@ -5,7 +5,7 @@ namespace SearchSharp
 {
     public class Search
     {
-        public List<string> GetAllFiles()
+        private List<string> GetAllFiles()
         {
             return new List<string>();
         }
