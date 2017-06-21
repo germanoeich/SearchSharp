@@ -65,6 +65,8 @@ namespace SearchSharp.Storage.NTFS
                     input.LowUsn = 0;
                     input.HighUsn = long.MaxValue;
 
+                    int i = 1;
+
                     using (var stream = new MemoryStream(outputBuffer, true))
                     {
                         while (!doneReading)
@@ -95,11 +97,10 @@ namespace SearchSharp.Storage.NTFS
                                     doneReading = true;
                                 }
                             }
+                            i++;
 
-                            StreamReader sr = new StreamReader(stream);
-                            Console.WriteLine("Current app path:", AppContext.BaseDirectory);
-                            File.AppendAllText("output.txt", sr.ReadToEnd());
-
+                            if (i > 200) break;
+                            
                             //input.StartFileReferenceNumber = stream.ReadULong();
                             //while (stream.Position < bytesRead)
                             //{
@@ -117,8 +118,9 @@ namespace SearchSharp.Storage.NTFS
                             //    Console.WriteLine("Timestamp:" + usnRecord.TimeStamp);
                             //    //-->>>>>>>>>>>>>>>>>>> 
                             //}
-                            stream.Seek(0, SeekOrigin.Begin);
                         }
+
+                        File.WriteAllBytes("output.txt", outputBuffer);
                     }
                 }
             }
@@ -130,10 +132,10 @@ namespace SearchSharp.Storage.NTFS
             return okay;
         }
 
-        internal SafeFileHandle GetVolumeHandle(string pathToVolume, EFileAccess access = EFileAccess.GenericRead | EFileAccess.GenericWrite)
+        internal SafeFileHandle GetVolumeHandle(string pathToVolume)
         {
             var handle = PInvoke.CreateFile(pathToVolume,
-                access,
+                EFileAccess.GenericRead | EFileAccess.GenericWrite,
                 EFileShareMode.FileShareRead | EFileShareMode.FileShareWrite,
                 IntPtr.Zero,
                 (uint)ECreationDisposition.OpenExisting,
