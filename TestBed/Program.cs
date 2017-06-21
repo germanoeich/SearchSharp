@@ -9,6 +9,7 @@ namespace TestBed
         {
             Search s = new Search();
             s.GetAllFiles();
+            Console.Read();
         }
     }
 }

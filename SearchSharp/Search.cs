@@ -9,7 +9,7 @@ namespace SearchSharp
         public void GetAllFiles()
         {
             NTFSVolume v = new NTFSVolume();
-            v.ReadMFT("C:\\");
+            v.ReadMFT("\\\\.\\C:");
 
         }
     }

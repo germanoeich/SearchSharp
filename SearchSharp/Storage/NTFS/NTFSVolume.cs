@@ -36,7 +36,7 @@ namespace SearchSharp.Storage.NTFS
 
         public void ReadMFT(string drivePath)
         {
-            if (!privilegesManager.HasBackupAndRestorePrivileges)
+            if (privilegesManager.HasBackupAndRestorePrivileges)
             {
                 using (var volume = GetVolumeHandle(drivePath))
                 {
@@ -97,6 +97,7 @@ namespace SearchSharp.Storage.NTFS
                             }
 
                             StreamReader sr = new StreamReader(stream);
+                            Console.WriteLine("Current app path:", AppContext.BaseDirectory);
                             File.AppendAllText("output.txt", sr.ReadToEnd());
 
                             //input.StartFileReferenceNumber = stream.ReadULong();
@@ -129,13 +130,24 @@ namespace SearchSharp.Storage.NTFS
             return okay;
         }
 
-        internal SafeFileHandle GetVolumeHandle(string pathToVolume, EFileAccess access = EFileAccess.AccessSystemSecurity | EFileAccess.GenericRead | EFileAccess.ReadControl)
+        internal SafeFileHandle GetVolumeHandle(string pathToVolume, EFileAccess access = EFileAccess.GenericRead | EFileAccess.GenericWrite)
         {
-            var attributes = (uint)EFileAttributes.BackupSemantics;
-            var handle = PInvoke.CreateFile(pathToVolume, access, 7U, IntPtr.Zero, (uint)ECreationDisposition.OpenExisting, attributes, IntPtr.Zero);
+            var handle = PInvoke.CreateFile(pathToVolume,
+                access,
+                EFileShareMode.FileShareRead | EFileShareMode.FileShareWrite,
+                IntPtr.Zero,
+                (uint)ECreationDisposition.OpenExisting,
+                0,
+                IntPtr.Zero);
             if (handle.IsInvalid)
             {
-                throw new IOException("Bad path");
+                var err = Marshal.GetLastWin32Error();
+
+                if (err > 0)
+                    throw new Win32Exception(err);
+                else
+                    throw new IOException("Bad path");
+
             }
 
             return handle;

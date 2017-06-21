@@ -50,6 +50,15 @@ namespace SearchSharp.Win32
             MaximumAllowed = 0x2000000
         }
 
+        [Flags]
+        internal enum EFileShareMode : uint
+        {
+            None = 0x00000000,
+            FileShareRead = 0x00000001,
+            FileShareWrite = 0x00000002,
+            FileShareDelete = 0x00000004
+        }
+
 
         [Flags]
         internal enum EFileDevice : uint

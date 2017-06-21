@@ -49,7 +49,7 @@ namespace SearchSharp.Win32
         [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
         internal static extern SafeFileHandle CreateFile(string lpFileName, 
             EFileAccess dwDesiredAccess,
-            uint dwShareMode,
+            EFileShareMode dwShareMode,
             IntPtr lpSecurityAttributes,
             uint dwCreationDisposition,
             uint dwFlagsAndAttributes,
