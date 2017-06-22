@@ -3,6 +3,7 @@ using SearchSharp.Win32;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -46,93 +47,96 @@ namespace SearchSharp.Storage.NTFS
 
         }
 
-        private unsafe bool ReadMft(SafeHandle volume)
+
+
+        private unsafe MFT_ENUM_DATA_V0 SetupMFTEnumData(SafeHandle volume)
         {
-            var outputBufferSize = 1024 * 1024;
-            var input = new MFTInputQuery();
-            //var usnRecord = new UsnRecordV2();
+            MFT_ENUM_DATA_V0 med;
+            uint bytesReturned = 0;
+            USN_JOURNAL_DATA ujd = new USN_JOURNAL_DATA();
 
-            var outputBuffer = new byte[outputBufferSize];
+            bool success = PInvoke.DeviceIoControl(volume.DangerousGetHandle(),
+                DeviceIOControlCode.FsctlQueryUsnJournal,
+                IntPtr.Zero,
+                0,
+                out ujd,
+                sizeof(USN_JOURNAL_DATA),
+                out bytesReturned,
+                IntPtr.Zero);
 
-            var okay = true;
-            var doneReading = false;
-
-            try
+            if (success)
             {
-                fixed (byte* pOutput = outputBuffer)
-                {
-                    input.StartFileReferenceNumber = 0;
-                    input.LowUsn = 0;
-                    input.HighUsn = long.MaxValue;
-
-                    int i = 1;
-
-                    using (var stream = new MemoryStream(outputBuffer, true))
-                    {
-                        while (!doneReading)
-                        {
-                            var bytesRead = 0U;
-                            okay = PInvoke.DeviceIoControl
-                            (
-                              volume.DangerousGetHandle(),
-                              DeviceIOControlCode.FsctlEnumUsnData,
-                              (byte*)&input.StartFileReferenceNumber,
-                              (uint)Marshal.SizeOf(input),
-                              pOutput,
-                              (uint)outputBufferSize,
-                              out bytesRead,
-                              IntPtr.Zero
-                            );
-
-                            if (!okay)
-                            {
-                                var error = Marshal.GetLastWin32Error();
-                                okay = error == ERROR_HANDLE_EOF;
-                                if (!okay)
-                                {
-                                    throw new Win32Exception(error);
-                                }
-                                else
-                                {
-                                    doneReading = true;
-                                }
-                            }
-                            i++;
-
-                            if (i > 200) break;
-                            
-                            //input.StartFileReferenceNumber = stream.ReadULong();
-                            //while (stream.Position < bytesRead)
-                            //{
-
-                            //}
-                            //{
-                            //    usnRecord.Read(stream);
-
-                            //    //-->>>>>>>>>>>>>>>>> 
-                            //    //--> just an example of reading out the record...
-                            //    Console.WriteLine("FRN:" + usnRecord.FileReferenceNumber.ToString());
-                            //    Console.WriteLine("Parent FRN:" + usnRecord.ParentFileReferenceNumber.ToString());
-                            //    Console.WriteLine("File name:" + usnRecord.FileName);
-                            //    Console.WriteLine("Attributes: " + (EFileAttributes)usnRecord.FileAttributes);
-                            //    Console.WriteLine("Timestamp:" + usnRecord.TimeStamp);
-                            //    //-->>>>>>>>>>>>>>>>>>> 
-                            //}
-                        }
-
-                        File.WriteAllBytes("output.txt", outputBuffer);
-                    }
-                }
+                med.StartFileReferenceNumber = 0;
+                med.LowUsn = 0;
+                med.HighUsn = ujd.NextUsn;
             }
-            catch (Exception ex)
+            else
             {
-                Console.Write(ex);
-                okay = false;
+                throw new Win32Exception(Marshal.GetLastWin32Error());
             }
-            return okay;
+
+            return med;
         }
 
-        internal SafeFileHandle GetVolumeHandle(string pathToVolume)
+        private unsafe bool ReadMft(SafeHandle volume)
+        {
+            int outputBufferSize = sizeof(UInt64) + 0x10000;
+            var input = SetupMFTEnumData(volume);
+
+            IntPtr pData = Marshal.AllocHGlobal(outputBufferSize);
+            PInvoke.ZeroMemory(pData, outputBufferSize);
+            uint outBytesReturned = 0;
+
+            HashSet<USN_RECORD> usnRecords = new HashSet<USN_RECORD>();
+
+            bool hasData;
+
+            HashSet<string> fileNames = new HashSet<string>();
+            Stopwatch sw = Stopwatch.StartNew();
+            do
+            {
+                hasData = PInvoke.DeviceIoControl(
+                  volume.DangerousGetHandle(),
+                  DeviceIOControlCode.FsctlEnumUsnData,
+                  (byte*)&input.StartFileReferenceNumber,
+                  sizeof(MFT_ENUM_DATA_V0),
+                  pData,
+                  outputBufferSize,
+                  out outBytesReturned,
+                  IntPtr.Zero
+                );
+
+                IntPtr pUsnRecord = new IntPtr(pData.ToInt64() + sizeof(Int64));
+
+
+                //Not sure why 60...
+                while (outBytesReturned > 60)
+                {
+                    USN_RECORD usn = new USN_RECORD(pUsnRecord);
+                    if (0 != (usn.FileAttributes & FILE_ATTRIBUTE_DIRECTORY))
+                    {
+                        //Directory
+                        fileNames.Add(usn.FileName);
+                    }
+                    else
+                    {
+                        //Files
+                        fileNames.Add(usn.FileName);
+                    }
+
+                    pUsnRecord = new IntPtr(pUsnRecord.ToInt64() + usn.RecordLength);
+                    outBytesReturned -= usn.RecordLength;
+                }
+                input.StartFileReferenceNumber = (ulong)Marshal.ReadInt64(pData, 0);
+            } while (hasData);
+
+            sw.Stop();
+            Console.WriteLine("Elapsed:", sw.Elapsed);
+            Marshal.FreeHGlobal(pData);
+            return true;
+        }
+
+        private SafeFileHandle GetVolumeHandle(string pathToVolume)
         {
             var handle = PInvoke.CreateFile(pathToVolume,
                 EFileAccess.GenericRead | EFileAccess.GenericWrite,
@@ -141,16 +145,9 @@ namespace SearchSharp.Storage.NTFS
                 (uint)ECreationDisposition.OpenExisting,
                 0,
                 IntPtr.Zero);
+
             if (handle.IsInvalid)
-            {
-                var err = Marshal.GetLastWin32Error();
-
-                if (err > 0)
-                    throw new Win32Exception(err);
-                else
-                    throw new IOException("Bad path");
-
-            }
+                throw new Win32Exception(Marshal.GetLastWin32Error());
 
             return handle;
         }

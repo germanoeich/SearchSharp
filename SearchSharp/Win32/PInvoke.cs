@@ -35,14 +35,25 @@ namespace SearchSharp.Win32
             IntPtr PreviousState,
             IntPtr ReturnLength);
 
-        [DllImport("kernel32.dll", ExactSpelling = true, SetLastError = true, CharSet = CharSet.Unicode)]
+        [DllImport("kernel32.dll", ExactSpelling = true, SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         internal static unsafe extern bool DeviceIoControl(IntPtr hDevice,
-            DeviceIOControlCode controlCode,
+            DeviceIOControlCode dwIoControlCode,
             byte* lpInBuffer,
-            uint nInBufferSize,
-            byte* lpOutBuffer,
-            uint nOutBufferSize,
+            Int32 nInBufferSize,
+            IntPtr lpOutBuffer,
+            Int32 nOutBufferSize,
+            out uint lpBytesReturned,
+            IntPtr lpOverlapped);
+
+        [DllImport("kernel32.dll", ExactSpelling = true, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool DeviceIoControl(IntPtr hDevice,
+            DeviceIOControlCode dwIoControlCode,
+            IntPtr lpInBuffer,
+            Int32 nInBufferSize,
+            out USN_JOURNAL_DATA lpOutBuffer,
+            Int32 nOutBufferSize,
             out uint lpBytesReturned,
             IntPtr lpOverlapped);
 
@@ -58,6 +69,10 @@ namespace SearchSharp.Win32
         [DllImport("kernel32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         internal static extern bool CloseHandle(IntPtr hObject);
+
+        [DllImport("Kernel32.dll", EntryPoint = "RtlZeroMemory")]
+        internal static extern void ZeroMemory(IntPtr dest, Int32 size);
+
 
         #endregion
     }

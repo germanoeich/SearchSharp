@@ -5,15 +5,6 @@ using System.Text;
 
 namespace SearchSharp.Win32
 {
-
-    [StructLayout(LayoutKind.Sequential)]
-    internal struct MFTInputQuery
-    {
-        public ulong StartFileReferenceNumber;
-        public long LowUsn;
-        public long HighUsn;
-    }
-
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     public struct BY_HANDLE_FILE_INFORMATION
     {
@@ -50,7 +41,7 @@ namespace SearchSharp.Win32
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    public struct MFT_ENUM_DATA
+    public struct MFT_ENUM_DATA_V0
     {
         public UInt64 StartFileReferenceNumber;
         public Int64 LowUsn;
@@ -88,7 +79,7 @@ namespace SearchSharp.Win32
             this.FileAttributes = (UInt32)Marshal.ReadInt32(p, FA_OFFSET);
             this.FileNameLength = Marshal.ReadInt16(p, FNL_OFFSET);
             this.FileNameOffset = Marshal.ReadInt16(p, FN_OFFSET);
-            FileName = Marshal.PtrToStringUni(new IntPtr(p.ToInt32() + this.FileNameOffset), this.FileNameLength / sizeof(char));
+            FileName = Marshal.PtrToStringUni(new IntPtr(p.ToInt64() + this.FileNameOffset), this.FileNameLength / sizeof(char));
         }
     }
 
