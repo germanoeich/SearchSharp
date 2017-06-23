@@ -83,7 +83,7 @@ namespace SearchSharp.Win32
         }
     }
 
-    [Flags]
+        [Flags]
     public enum UsnReason : uint
     {
         BASIC_INFO_CHANGE = 0x00008000,
