@@ -8,10 +8,14 @@
     <TargetFramework>netstandard1.6</TargetFramework>
     <ApplicationIcon />
     <OutputTypeEx>library</OutputTypeEx>
-    <StartupObject />
+    <StartupObject />    
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
   </PropertyGroup>
 

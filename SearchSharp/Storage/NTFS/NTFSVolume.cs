@@ -28,31 +28,27 @@ namespace SearchSharp.Storage.NTFS
         private const UInt32 FSCTL_CREATE_USN_JOURNAL = 0x000900e7;
         #endregion
 
-        BackupSemanticsPrivilegeManager privilegesManager;
+        private readonly string _drivePath;
+        private readonly string _driveLetter;
 
-        public NTFSVolume()
+        public NTFSVolume(char driveLetter)
         {
-            privilegesManager = new BackupSemanticsPrivilegeManager();
+            _driveLetter = driveLetter.ToString();
+            _drivePath = string.Format("\\\\.\\{0}:", driveLetter);
         }
 
-        public void ReadMFT(string drivePath)
+        public void ReadMFT()
         {
-            if (privilegesManager.HasBackupAndRestorePrivileges)
+            using (var volume = GetVolumeHandle(_drivePath))
             {
-                using (var volume = GetVolumeHandle(drivePath))
-                {
-                    ReadMft(volume);
-                }
+                ReadMft(volume);
             }
-
         }
-
 
 
         private unsafe MFT_ENUM_DATA_V0 SetupMFTEnumData(SafeHandle volume)
         {
             MFT_ENUM_DATA_V0 med;
-            uint bytesReturned = 0;
             USN_JOURNAL_DATA ujd = new USN_JOURNAL_DATA();
 
             bool success = PInvoke.DeviceIoControl(volume.DangerousGetHandle(),
@@ -61,7 +57,7 @@ namespace SearchSharp.Storage.NTFS
                 0,
                 out ujd,
                 sizeof(USN_JOURNAL_DATA),
-                out bytesReturned,
+                out uint bytesReturned,
                 IntPtr.Zero);
 
             if (success)
@@ -91,7 +87,8 @@ namespace SearchSharp.Storage.NTFS
 
             bool hasData;
 
-            HashSet<string> fileNames = new HashSet<string>();
+            var directories = new Dictionary<ulong, USNRefsAndFileName>();
+            var files = new Dictionary<ulong, USNRefsAndFileName>();
             Stopwatch sw = Stopwatch.StartNew();
             do
             {
@@ -116,22 +113,64 @@ namespace SearchSharp.Storage.NTFS
                     if (0 != (usn.FileAttributes & FILE_ATTRIBUTE_DIRECTORY))
                     {
                         //Directory
-                        fileNames.Add(usn.FileName);
+                        directories.Add(usn.FileReferenceNumber, new USNRefsAndFileName
+                        {
+                            FileName = usn.FileName,
+                            ParentFileReferenceNumber = usn.ParentFileReferenceNumber,
+                            FileReferenceNumber = usn.FileReferenceNumber
+                        });
                     }
                     else
                     {
                         //Files
-                        fileNames.Add(usn.FileName);
+                        files.Add(usn.FileReferenceNumber, new USNRefsAndFileName
+                        {
+                            FileName = usn.FileName,
+                            ParentFileReferenceNumber = usn.ParentFileReferenceNumber,
+                            FileReferenceNumber = usn.FileReferenceNumber
+                        });
                     }
 
                     pUsnRecord = new IntPtr(pUsnRecord.ToInt64() + usn.RecordLength);
                     outBytesReturned -= usn.RecordLength;
                 }
+
                 input.StartFileReferenceNumber = (ulong)Marshal.ReadInt64(pData, 0);
             } while (hasData);
 
             sw.Stop();
-            Console.WriteLine("Elapsed:", sw.Elapsed);
+            Console.WriteLine("Elapsed: {0}", sw.Elapsed);
+            Console.WriteLine("Files: {0} \r\nDirectories: {1}", files.Count, directories.Count);
+
+
+            sw.Restart();
+
+            var filenames = new HashSet<string>();
+
+            foreach (var item in files)
+            {
+                var stack = new Stack<string>();
+                stack.Push(item.Value.FileName);
+
+                var parentRef = item.Value.ParentFileReferenceNumber;
+
+                while (true)
+                {
+                    if (!directories.ContainsKey(parentRef)) break;
+                    var parentUsn = directories[parentRef];
+                    stack.Push(parentUsn.FileName);
+                    parentRef = parentUsn.ParentFileReferenceNumber;
+                }
+                stack.Push(_driveLetter + ":");
+                //Console.WriteLine(String.Join("\\", stack.ToArray()));
+                filenames.Add(String.Join("\\", stack.ToArray()));
+            }
+
+            sw.Stop();
+
+            Console.WriteLine("Elapsed: {0}", sw.Elapsed);
+
+
             Marshal.FreeHGlobal(pData);
             return true;
         }

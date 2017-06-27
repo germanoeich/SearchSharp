@@ -49,12 +49,13 @@ namespace SearchSharp.Storage.NTFS
 
         private bool AssignPrivilege(string privilege)
         {
-            IntPtr token;
-            var tokenPrivileges = new TOKEN_PRIVILEGES();
-            tokenPrivileges.Privileges = new LUID_AND_ATTRIBUTES[1];
+            var tokenPrivileges = new TOKEN_PRIVILEGES()
+            {
+                Privileges = new LUID_AND_ATTRIBUTES[1]
+            };
 
             var success =
-              PInvoke.OpenProcessToken(PInvoke.GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, out token)
+              PInvoke.OpenProcessToken(PInvoke.GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, out IntPtr token)
               &&
               PInvoke.LookupPrivilegeValue(null, privilege, out tokenPrivileges.Privileges[0].Luid);
 

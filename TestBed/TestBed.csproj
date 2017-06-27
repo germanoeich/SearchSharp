@@ -4,13 +4,11 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp1.1</TargetFramework>
     <ApplicationManifest>TestBed.manifest</ApplicationManifest>
+    <RuntimeIdentifiers>win10-x64</RuntimeIdentifiers>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\SearchSharp\SearchSharp.csproj">
-      <Private>true</Private>
-      <EmbedInteropTypes>false</EmbedInteropTypes>
-    </ProjectReference>
+    <ProjectReference Include="..\SearchSharp\SearchSharp.csproj" />
   </ItemGroup>
 
 </Project>
