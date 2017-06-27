@@ -76,10 +76,11 @@ namespace SearchSharp.Storage.NTFS
 
         private unsafe bool ReadMft(SafeHandle volume)
         {
-            int outputBufferSize = sizeof(UInt64) + 0x10000;
+            int outputBufferSize = short.MaxValue;
             var input = SetupMFTEnumData(volume);
 
             IntPtr pData = Marshal.AllocHGlobal(outputBufferSize);
+            Marshal.WriteInt64(pData, 2);
             PInvoke.ZeroMemory(pData, outputBufferSize);
             uint outBytesReturned = 0;
 
@@ -102,14 +103,16 @@ namespace SearchSharp.Storage.NTFS
                   out outBytesReturned,
                   IntPtr.Zero
                 );
-
+                
+            
                 IntPtr pUsnRecord = new IntPtr(pData.ToInt64() + sizeof(Int64));
 
 
-                //Not sure why 60...
+                //61 is the minimum record length. Less than that is left-over space on the buffer
                 while (outBytesReturned > 60)
                 {
                     USN_RECORD usn = new USN_RECORD(pUsnRecord);
+                     
                     if (0 != (usn.FileAttributes & FILE_ATTRIBUTE_DIRECTORY))
                     {
                         //Directory
