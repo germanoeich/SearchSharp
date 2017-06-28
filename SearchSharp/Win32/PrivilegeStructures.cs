@@ -8,8 +8,8 @@ namespace SearchSharp.Win32
     [StructLayout(LayoutKind.Sequential)]
     internal struct LUID
     {
-        public UInt32 LowPart;
-        public Int32 HighPart;
+        public uint LowPart;
+        public int HighPart;
     }
 
 
@@ -17,12 +17,12 @@ namespace SearchSharp.Win32
     internal struct LUID_AND_ATTRIBUTES
     {
         public LUID Luid;
-        public UInt32 Attributes;
+        public uint Attributes;
     }
 
     internal struct TOKEN_PRIVILEGES
     {
-        public UInt32 PrivilegeCount;
+        public uint PrivilegeCount;
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 1)]
         public LUID_AND_ATTRIBUTES[] Privileges;
     }

@@ -14,7 +14,7 @@ namespace SearchSharp.Win32
         [DllImport("advapi32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         internal static extern bool OpenProcessToken(IntPtr ProcessHandle,
-            UInt32 DesiredAccess,
+            uint DesiredAccess,
             out IntPtr TokenHandle);
 
         [DllImport("kernel32.dll")]
@@ -31,7 +31,7 @@ namespace SearchSharp.Win32
         internal static extern bool AdjustTokenPrivileges(IntPtr TokenHandle,
             [MarshalAs(UnmanagedType.Bool)]bool DisableAllPrivileges,
             ref TOKEN_PRIVILEGES NewState,
-            Int32 BufferLength,
+            int BufferLength,
             IntPtr PreviousState,
             IntPtr ReturnLength);
 
@@ -40,9 +40,9 @@ namespace SearchSharp.Win32
         internal static unsafe extern bool DeviceIoControl(IntPtr hDevice,
             DeviceIOControlCode dwIoControlCode,
             byte* lpInBuffer,
-            Int32 nInBufferSize,
+            int nInBufferSize,
             IntPtr lpOutBuffer,
-            Int32 nOutBufferSize,
+            int nOutBufferSize,
             out uint lpBytesReturned,
             IntPtr lpOverlapped);
 
@@ -51,9 +51,9 @@ namespace SearchSharp.Win32
         internal static extern bool DeviceIoControl(IntPtr hDevice,
             DeviceIOControlCode dwIoControlCode,
             IntPtr lpInBuffer,
-            Int32 nInBufferSize,
+            int nInBufferSize,
             out USN_JOURNAL_DATA lpOutBuffer,
-            Int32 nOutBufferSize,
+            int nOutBufferSize,
             out uint lpBytesReturned,
             IntPtr lpOverlapped);
 
@@ -71,7 +71,7 @@ namespace SearchSharp.Win32
         internal static extern bool CloseHandle(IntPtr hObject);
 
         [DllImport("Kernel32.dll", EntryPoint = "RtlZeroMemory")]
-        internal static extern void ZeroMemory(IntPtr dest, Int32 size);
+        internal static extern void ZeroMemory(IntPtr dest, int size);
 
 
         #endregion

@@ -6,8 +6,8 @@ namespace SearchSharp.Storage.NTFS
 {
     internal class USNRefsAndFileName
     {
-        public UInt64 FileReferenceNumber;
-        public UInt64 ParentFileReferenceNumber;
+        public ulong FileReferenceNumber;
+        public ulong ParentFileReferenceNumber;
         public string FileName = string.Empty;
     }
 }

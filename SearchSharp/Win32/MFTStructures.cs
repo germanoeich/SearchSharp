@@ -31,45 +31,45 @@ namespace SearchSharp.Win32
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     public struct USN_JOURNAL_DATA
     {
-        public UInt64 UsnJournalID;
-        public Int64 FirstUsn;
-        public Int64 NextUsn;
-        public Int64 LowestValidUsn;
-        public Int64 MaxUsn;
-        public UInt64 MaximumSize;
-        public UInt64 AllocationDelta;
+        public ulong UsnJournalID;
+        public long FirstUsn;
+        public long NextUsn;
+        public long LowestValidUsn;
+        public long MaxUsn;
+        public ulong MaximumSize;
+        public ulong AllocationDelta;
     }
 
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    [StructLayout(LayoutKind.Sequential, Pack = 1, Size = 24)]
     public struct MFT_ENUM_DATA_V0
     {
-        public UInt64 StartFileReferenceNumber;
-        public Int64 LowUsn;
-        public Int64 HighUsn;
+        public ulong StartFileReferenceNumber;
+        public long LowUsn;
+        public long HighUsn;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     public struct CREATE_USN_JOURNAL_DATA
     {
-        public UInt64 MaximumSize;
-        public UInt64 AllocationDelta;
+        public ulong MaximumSize;
+        public ulong AllocationDelta;
     }
 
     public class USN_RECORD
     {
-        public UInt32 RecordLength;
-        public UInt64 FileReferenceNumber;
-        public UInt64 ParentFileReferenceNumber;
-        public UInt32 FileAttributes;
-        public Int32 FileNameLength;
-        public Int32 FileNameOffset;
-        public string FileName;
+        public uint RecordLength;
+        public ulong FileReferenceNumber;
+        public ulong ParentFileReferenceNumber;
+        public uint FileAttributes;
+        public int FileNameLength;
+        public int FileNameOffset;
+        public string FileName = string.Empty;
 
         private const int FR_OFFSET = 8;
         private const int PFR_OFFSET = 16;
         private const int FA_OFFSET = 52;
         private const int FNL_OFFSET = 56;
-        private const int FNO_OFFSET = 58;
+        private const int FN_OFFSET = 58;
 
         public USN_RECORD(IntPtr p)
         {
@@ -78,8 +78,8 @@ namespace SearchSharp.Win32
             this.ParentFileReferenceNumber = (UInt64)Marshal.ReadInt64(p, PFR_OFFSET);
             this.FileAttributes = (UInt32)Marshal.ReadInt32(p, FA_OFFSET);
             this.FileNameLength = Marshal.ReadInt16(p, FNL_OFFSET);
-            this.FileNameOffset = Marshal.ReadInt16(p, FNO_OFFSET);
-            this.FileName = Marshal.PtrToStringUni(new IntPtr(p.ToInt64() + this.FileNameOffset), this.FileNameLength / sizeof(char));
+            this.FileNameOffset = Marshal.ReadInt16(p, FN_OFFSET);
+            FileName = Marshal.PtrToStringUni(new IntPtr(p.ToInt64() + this.FileNameOffset), this.FileNameLength / sizeof(char));
         }
     }
 
