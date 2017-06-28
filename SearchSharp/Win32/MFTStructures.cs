@@ -28,7 +28,8 @@ namespace SearchSharp.Win32
     }
 
 
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    //This structure gets marshaled and passed to unmanaged code, so take care with the structlayout
+    [StructLayout(LayoutKind.Sequential, Pack = 8, Size = 56)]
     public struct USN_JOURNAL_DATA
     {
         public ulong UsnJournalID;
@@ -40,7 +41,8 @@ namespace SearchSharp.Win32
         public ulong AllocationDelta;
     }
 
-    [StructLayout(LayoutKind.Sequential, Pack = 1, Size = 24)]
+    //This structure gets marshaled and passed to unmanaged code, so take care with the structlayout
+    [StructLayout(LayoutKind.Sequential, Pack = 8, Size = 24)]
     public struct MFT_ENUM_DATA_V0
     {
         public ulong StartFileReferenceNumber;
@@ -48,7 +50,7 @@ namespace SearchSharp.Win32
         public long HighUsn;
     }
 
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    [StructLayout(LayoutKind.Sequential)]
     public struct CREATE_USN_JOURNAL_DATA
     {
         public ulong MaximumSize;
@@ -83,7 +85,7 @@ namespace SearchSharp.Win32
         }
     }
 
-        [Flags]
+    [Flags]
     public enum UsnReason : uint
     {
         BASIC_INFO_CHANGE = 0x00008000,

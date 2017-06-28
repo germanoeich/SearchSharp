@@ -19,27 +19,12 @@ namespace SearchSharp.Win32
 
         [DllImport("kernel32.dll")]
         internal static extern IntPtr GetCurrentProcess();
-
-        [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        internal static extern bool LookupPrivilegeValue(string lpSystemName, 
-            string lpName,
-            out LUID lpLuid);
-
-        [DllImport("advapi32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        internal static extern bool AdjustTokenPrivileges(IntPtr TokenHandle,
-            [MarshalAs(UnmanagedType.Bool)]bool DisableAllPrivileges,
-            ref TOKEN_PRIVILEGES NewState,
-            int BufferLength,
-            IntPtr PreviousState,
-            IntPtr ReturnLength);
-
+        
         [DllImport("kernel32.dll", ExactSpelling = true, SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
-        internal static unsafe extern bool DeviceIoControl(IntPtr hDevice,
+        internal static extern bool DeviceIoControl(IntPtr hDevice,
             DeviceIOControlCode dwIoControlCode,
-            byte* lpInBuffer,
+            IntPtr lpInBuffer,
             int nInBufferSize,
             IntPtr lpOutBuffer,
             int nOutBufferSize,
@@ -70,10 +55,9 @@ namespace SearchSharp.Win32
         [return: MarshalAs(UnmanagedType.Bool)]
         internal static extern bool CloseHandle(IntPtr hObject);
 
-        [DllImport("Kernel32.dll", EntryPoint = "RtlZeroMemory")]
+        [DllImport("kernel32.dll", EntryPoint = "RtlZeroMemory")]
         internal static extern void ZeroMemory(IntPtr dest, int size);
-
-
+        
         #endregion
     }
 }

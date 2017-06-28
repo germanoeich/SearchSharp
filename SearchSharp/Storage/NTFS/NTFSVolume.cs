@@ -52,7 +52,7 @@ namespace SearchSharp.Storage.NTFS
         }
 
 
-        private unsafe MFT_ENUM_DATA_V0 SetupMFTEnumData(SafeHandle volume)
+        private MFT_ENUM_DATA_V0 SetupMFTEnumData(SafeHandle volume)
         {
             MFT_ENUM_DATA_V0 med;
             USN_JOURNAL_DATA ujd = new USN_JOURNAL_DATA();
@@ -62,7 +62,7 @@ namespace SearchSharp.Storage.NTFS
                 IntPtr.Zero,
                 0,
                 out ujd,
-                sizeof(USN_JOURNAL_DATA),
+                Marshal.SizeOf<USN_JOURNAL_DATA>(),
                 out uint bytesReturned,
                 IntPtr.Zero);
 
@@ -80,74 +80,77 @@ namespace SearchSharp.Storage.NTFS
             return med;
         }
 
-        private unsafe bool ReadMft(SafeHandle volume)
+        private bool ReadMft(SafeHandle volume)
         {
             // ~1MB
             int outputBufferSize = 1024 * 1024;
 
             var input = SetupMFTEnumData(volume);
-            
-            IntPtr pData = Marshal.AllocHGlobal(outputBufferSize);
-            PInvoke.ZeroMemory(pData, outputBufferSize);
+
+            IntPtr outBuffer = Marshal.AllocHGlobal(outputBufferSize);
+            IntPtr inBuffer = Marshal.AllocHGlobal(sizeof(ulong));
+
+            PInvoke.ZeroMemory(outBuffer, outputBufferSize);
 
             uint outBytesReturned = 0;
             bool hasData;
 
             Stopwatch sw = Stopwatch.StartNew();
 
-            using (var ms = new MemoryStream())
+            do
             {
-                do
+                Marshal.StructureToPtr(input.StartFileReferenceNumber, inBuffer, true);
+
+                hasData = PInvoke.DeviceIoControl(
+                  volume.DangerousGetHandle(),
+                  DeviceIOControlCode.FsctlEnumUsnData,
+                  inBuffer,
+                  Marshal.SizeOf<MFT_ENUM_DATA_V0>(),
+                  outBuffer,
+                  outputBufferSize,
+                  out outBytesReturned,
+                  IntPtr.Zero
+                );
+
+
+                IntPtr pUsnRecord = new IntPtr(outBuffer.ToInt64() + sizeof(Int64));
+
+                //61 is the minimum record length. Less than that is left-over space on the buffer
+                while (outBytesReturned > 60)
                 {
-                    hasData = PInvoke.DeviceIoControl(
-                      volume.DangerousGetHandle(),
-                      DeviceIOControlCode.FsctlEnumUsnData,
-                      (byte*)&input.StartFileReferenceNumber,
-                      sizeof(MFT_ENUM_DATA_V0),
-                      pData,
-                      outputBufferSize,
-                      out outBytesReturned,
-                      IntPtr.Zero
-                    );
+                    USN_RECORD usn = new USN_RECORD(pUsnRecord);
 
-
-                    IntPtr pUsnRecord = new IntPtr(pData.ToInt64() + sizeof(Int64));
-
-                    //61 is the minimum record length. Less than that is left-over space on the buffer
-                    while (outBytesReturned > 60)
+                    if (0 != (usn.FileAttributes & FILE_ATTRIBUTE_DIRECTORY))
                     {
-                        USN_RECORD usn = new USN_RECORD(pUsnRecord);
-
-                        if (0 != (usn.FileAttributes & FILE_ATTRIBUTE_DIRECTORY))
+                        //Directory
+                        _directories.Add(usn.FileReferenceNumber, new USNRefsAndFileName
                         {
-                            //Directory
-                            _directories.Add(usn.FileReferenceNumber, new USNRefsAndFileName
-                            {
-                                FileName = usn.FileName,
-                                ParentFileReferenceNumber = usn.ParentFileReferenceNumber,
-                                FileReferenceNumber = usn.FileReferenceNumber
-                            });
-                        }
-                        else
+                            FileName = usn.FileName,
+                            ParentFileReferenceNumber = usn.ParentFileReferenceNumber,
+                            FileReferenceNumber = usn.FileReferenceNumber
+                        });
+                    }
+                    else
+                    {
+                        //Files
+                        _files.Add(usn.FileReferenceNumber, new USNRefsAndFileName
                         {
-                            //Files
-                            _files.Add(usn.FileReferenceNumber, new USNRefsAndFileName
-                            {
-                                FileName = usn.FileName,
-                                ParentFileReferenceNumber = usn.ParentFileReferenceNumber,
-                                FileReferenceNumber = usn.FileReferenceNumber
-                            });
-                        }
-
-                        pUsnRecord = new IntPtr(pUsnRecord.ToInt64() + usn.RecordLength);
-                        outBytesReturned -= usn.RecordLength;
+                            FileName = usn.FileName,
+                            ParentFileReferenceNumber = usn.ParentFileReferenceNumber,
+                            FileReferenceNumber = usn.FileReferenceNumber
+                        });
                     }
 
-                    input.StartFileReferenceNumber = (ulong)Marshal.ReadInt64(pData, 0);
-                } while (hasData);
+                    pUsnRecord = new IntPtr(pUsnRecord.ToInt64() + usn.RecordLength);
+                    outBytesReturned -= usn.RecordLength;
+                }
 
-                Marshal.FreeHGlobal(pData);
-            }
+                input.StartFileReferenceNumber = (ulong)Marshal.ReadInt64(outBuffer, 0);
+            } while (hasData);
+
+            Marshal.FreeHGlobal(outBuffer);
+            Marshal.FreeHGlobal(inBuffer);
+
 
             sw.Stop();
             Console.WriteLine("Elapsed: {0}", sw.Elapsed);

@@ -147,7 +147,7 @@ namespace SearchSharp.Win32
             /// <summary/>
             None = 0,
 
-            //-->  these are consistent w/ .Net FileAttributes...
+            //these are consistent w/ .Net FileAttributes...
             Readonly = 0x00000001,
             Hidden = 0x00000002,
             System = 0x00000004,
@@ -163,7 +163,7 @@ namespace SearchSharp.Win32
             NotContentIndexed = 0x00002000,
             Encrypted = 0x00004000,
 
-            //--> additional CreateFile call attributes...
+            //additional CreateFile call attributes...
             Write_Through = 0x80000000,
             Overlapped = 0x40000000,
             NoBuffering = 0x20000000,
