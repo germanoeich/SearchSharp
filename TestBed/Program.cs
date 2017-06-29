@@ -3,11 +3,11 @@ using System;
 
 namespace TestBed
 {
-    class Program
+    internal class Program
     {
-        static void Main(string[] args)
+        private static void Main(string[] args)
         {
-            Search s = new Search();
+            var s = new Search();
             s.GetAllFiles();
             Console.Read();
         }

@@ -4,7 +4,7 @@ using System.Text;
 
 namespace SearchSharp.Storage.NTFS
 {
-    internal class USNRefsAndFileName
+    internal class UsnRefsAndFileName
     {
         public ulong FileReferenceNumber;
         public ulong ParentFileReferenceNumber;

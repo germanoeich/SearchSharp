@@ -8,8 +8,8 @@ namespace SearchSharp
     {
         public void GetAllFiles()
         {
-            NTFSVolume v = new NTFSVolume('C');
-            v.ReadMFT();
+            NtfsVolume v = new NtfsVolume('C');
+            v.ReadMft();
 
         }
     }

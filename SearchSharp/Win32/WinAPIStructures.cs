@@ -1,10 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace SearchSharp.Win32
 {
-    public class WinAPIStructures
+    public class WinApiStructures
     {
         [Flags]
         internal enum EMethod : uint
@@ -35,7 +33,7 @@ namespace SearchSharp.Win32
 
             Delete = 0x10000,
             ReadControl = 0x20000,
-            WriteDAC = 0x40000,
+            WriteDac = 0x40000,
             WriteOwner = 0x80000,
             Synchronize = 0x100000,
 
@@ -64,8 +62,8 @@ namespace SearchSharp.Win32
         internal enum EFileDevice : uint
         {
             Beep = 0x00000001,
-            CDRom = 0x00000002,
-            CDRomFileSytem = 0x00000003,
+            CdRom = 0x00000002,
+            CdRomFileSytem = 0x00000003,
             Controller = 0x00000004,
             Datalink = 0x00000005,
             Dfs = 0x00000006,
@@ -120,7 +118,6 @@ namespace SearchSharp.Win32
             Serenum = 0x00000037,
             Termsrv = 0x00000038,
             Ksec = 0x00000039,
-            // From Windows Driver Kit 7
             Fips = 0x0000003A,
             Infiniband = 0x0000003B,
             Vmbus = 0x0000003E,
@@ -133,7 +130,7 @@ namespace SearchSharp.Win32
             Pmi = 0x00000045
         }
 
-        internal enum EFileIOCtlAccess : uint
+        internal enum EFileIoCtlAccess : uint
         {
             Any = 0,
             Special = Any,
@@ -144,10 +141,7 @@ namespace SearchSharp.Win32
         [Flags]
         internal enum EFileAttributes : uint
         {
-            /// <summary/>
             None = 0,
-
-            //these are consistent w/ .Net FileAttributes...
             Readonly = 0x00000001,
             Hidden = 0x00000002,
             System = 0x00000004,
@@ -162,9 +156,7 @@ namespace SearchSharp.Win32
             Offline = 0x00001000,
             NotContentIndexed = 0x00002000,
             Encrypted = 0x00004000,
-
-            //additional CreateFile call attributes...
-            Write_Through = 0x80000000,
+            WriteThrough = 0x80000000,
             Overlapped = 0x40000000,
             NoBuffering = 0x20000000,
             RandomAccess = 0x10000000,
@@ -177,13 +169,13 @@ namespace SearchSharp.Win32
             FirstPipeInstance = 0x00080000
         }
 
-        internal enum DeviceIOControlCode : uint
+        internal enum DeviceIoControlCode : uint
         {
-            FsctlEnumUsnData = (EFileDevice.FileSystem << 16) | (44 << 2) | EMethod.Neither | (EFileIOCtlAccess.Any << 14),
-            FsctlReadUsnJournal = (EFileDevice.FileSystem << 16) | (46 << 2) | EMethod.Neither | (EFileIOCtlAccess.Any << 14),
-            FsctlReadFileUsnData = (EFileDevice.FileSystem << 16) | (58 << 2) | EMethod.Neither | (EFileIOCtlAccess.Any << 14),
-            FsctlQueryUsnJournal = (EFileDevice.FileSystem << 16) | (61 << 2) | EMethod.Buffered | (EFileIOCtlAccess.Any << 14),
-            FsctlCreateUsnJournal = (EFileDevice.FileSystem << 16) | (57 << 2) | EMethod.Neither | (EFileIOCtlAccess.Any << 14)
+            FsctlEnumUsnData = (EFileDevice.FileSystem << 16) | (44 << 2) | EMethod.Neither | (EFileIoCtlAccess.Any << 14),
+            FsctlReadUsnJournal = (EFileDevice.FileSystem << 16) | (46 << 2) | EMethod.Neither | (EFileIoCtlAccess.Any << 14),
+            FsctlReadFileUsnData = (EFileDevice.FileSystem << 16) | (58 << 2) | EMethod.Neither | (EFileIoCtlAccess.Any << 14),
+            FsctlQueryUsnJournal = (EFileDevice.FileSystem << 16) | (61 << 2) | EMethod.Buffered | (EFileIoCtlAccess.Any << 14),
+            FsctlCreateUsnJournal = (EFileDevice.FileSystem << 16) | (57 << 2) | EMethod.Neither | (EFileIoCtlAccess.Any << 14)
         }
     }
 }

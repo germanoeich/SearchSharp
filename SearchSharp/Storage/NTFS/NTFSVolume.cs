@@ -3,47 +3,33 @@ using SearchSharp.Win32;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
-using System.Text;
-using static SearchSharp.Win32.WinAPIStructures;
-
+using static SearchSharp.Win32.WinApiStructures;
 namespace SearchSharp.Storage.NTFS
 {
-    public class NTFSVolume
+    public class NtfsVolume
     {
-        #region Codes used with P/Invoke
-        private const int ERROR_HANDLE_EOF = 38;
-        private const uint GENERIC_READ = 0x80000000;
-        private const uint GENERIC_WRITE = 0x40000000;
-        private const uint FILE_SHARE_READ = 0x00000001;
-        private const uint FILE_SHARE_WRITE = 0x00000002;
-        private const uint FILE_ATTRIBUTE_DIRECTORY = 0x00000010;
-        private const uint OPEN_EXISTING = 3;
-        private const uint FILE_FLAG_BACKUP_SEMANTICS = 0x02000000;
-        private const int INVALID_HANDLE_VALUE = -1;
-        private const uint FSCTL_QUERY_USN_JOURNAL = 0x000900f4;
-        private const uint FSCTL_ENUM_USN_DATA = 0x000900b3;
-        private const uint FSCTL_CREATE_USN_JOURNAL = 0x000900e7;
-        #endregion
+        private const uint FileAttributeDirectory = 0x00000010;
 
         private readonly string _drivePath;
         private readonly string _driveLetter;
-        private readonly Dictionary<ulong, USNRefsAndFileName> _directories;
-        private readonly Dictionary<ulong, USNRefsAndFileName> _files;
+        private readonly Dictionary<ulong, UsnRefsAndFileName> _directories;
+        private readonly Dictionary<ulong, UsnRefsAndFileName> _files;
+        private readonly HashSet<FileInfo> _fileInfos;
 
-        public NTFSVolume(char driveLetter)
+        public NtfsVolume(char driveLetter)
         {
-            _directories = new Dictionary<ulong, USNRefsAndFileName>();
-            _files = new Dictionary<ulong, USNRefsAndFileName>();
+            _directories = new Dictionary<ulong, UsnRefsAndFileName>();
+            _files = new Dictionary<ulong, UsnRefsAndFileName>();
+            _fileInfos = new HashSet<FileInfo>();
 
             _driveLetter = driveLetter.ToString();
             _drivePath = string.Format("\\\\.\\{0}:", driveLetter);
 
         }
 
-        public void ReadMFT()
+        public void ReadMft()
         {
             using (var volume = GetVolumeHandle(_drivePath))
             {
@@ -55,113 +41,110 @@ namespace SearchSharp.Storage.NTFS
         private MFT_ENUM_DATA_V0 SetupMFTEnumData(SafeHandle volume)
         {
             MFT_ENUM_DATA_V0 med;
-            USN_JOURNAL_DATA ujd = new USN_JOURNAL_DATA();
 
-            bool success = PInvoke.DeviceIoControl(volume.DangerousGetHandle(),
-                DeviceIOControlCode.FsctlQueryUsnJournal,
-                IntPtr.Zero,
-                0,
-                out ujd,
-                Marshal.SizeOf<USN_JOURNAL_DATA>(),
-                out uint bytesReturned,
-                IntPtr.Zero);
-
-            if (success)
+            using (var ujdHandle = SafeHGlobalHandle.Alloc(Marshal.SizeOf<USN_JOURNAL_DATA>()))
             {
-                med.StartFileReferenceNumber = 0;
-                med.LowUsn = 0;
-                med.HighUsn = ujd.NextUsn;
-            }
-            else
-            {
-                throw new Win32Exception(Marshal.GetLastWin32Error());
-            }
+                var ujd = new USN_JOURNAL_DATA();
+                Marshal.StructureToPtr(ujd, ujdHandle, true);
 
+                var success = PInvoke.DeviceIoControl(volume.DangerousGetHandle(),
+                    DeviceIoControlCode.FsctlQueryUsnJournal,
+                    IntPtr.Zero,
+                    0,
+                    ujdHandle,
+                    Marshal.SizeOf<USN_JOURNAL_DATA>(),
+                    out uint _,
+                    IntPtr.Zero);
+
+                if (success)
+                {
+                    med.StartFileReferenceNumber = 0;
+                    med.LowUsn = 0;
+                    med.HighUsn = ujd.NextUsn;
+                }
+                else
+                {
+                    throw new Win32Exception(Marshal.GetLastWin32Error());
+                }
+            }
             return med;
         }
 
-        private bool ReadMft(SafeHandle volume)
+        private void ReadMft(SafeHandle volume)
         {
             // ~1MB
-            int outputBufferSize = 1024 * 1024;
+            const int outputBufferSize = 1024 * 1024;
 
             var input = SetupMFTEnumData(volume);
 
-            IntPtr outBuffer = Marshal.AllocHGlobal(outputBufferSize);
-            IntPtr inBuffer = Marshal.AllocHGlobal(sizeof(ulong));
-
-            PInvoke.ZeroMemory(outBuffer, outputBufferSize);
-
-            uint outBytesReturned = 0;
-            bool hasData;
-
-            Stopwatch sw = Stopwatch.StartNew();
-
-            do
+            using (var outBuffer = SafeHGlobalHandle.Alloc(outputBufferSize))
             {
-                Marshal.StructureToPtr(input.StartFileReferenceNumber, inBuffer, true);
-
-                hasData = PInvoke.DeviceIoControl(
-                  volume.DangerousGetHandle(),
-                  DeviceIOControlCode.FsctlEnumUsnData,
-                  inBuffer,
-                  Marshal.SizeOf<MFT_ENUM_DATA_V0>(),
-                  outBuffer,
-                  outputBufferSize,
-                  out outBytesReturned,
-                  IntPtr.Zero
-                );
-
-
-                IntPtr pUsnRecord = new IntPtr(outBuffer.ToInt64() + sizeof(Int64));
-
-                //61 is the minimum record length. Less than that is left-over space on the buffer
-                while (outBytesReturned > 60)
+                PInvoke.ZeroMemory(outBuffer, outputBufferSize);
+                using (var inBuffer = SafeHGlobalHandle.Alloc(sizeof(ulong)))
                 {
-                    USN_RECORD usn = new USN_RECORD(pUsnRecord);
 
-                    if (0 != (usn.FileAttributes & FILE_ATTRIBUTE_DIRECTORY))
-                    {
-                        //Directory
-                        _directories.Add(usn.FileReferenceNumber, new USNRefsAndFileName
-                        {
-                            FileName = usn.FileName,
-                            ParentFileReferenceNumber = usn.ParentFileReferenceNumber,
-                            FileReferenceNumber = usn.FileReferenceNumber
-                        });
-                    }
-                    else
-                    {
-                        //Files
-                        _files.Add(usn.FileReferenceNumber, new USNRefsAndFileName
-                        {
-                            FileName = usn.FileName,
-                            ParentFileReferenceNumber = usn.ParentFileReferenceNumber,
-                            FileReferenceNumber = usn.FileReferenceNumber
-                        });
-                    }
+                    bool hasData;
 
-                    pUsnRecord = new IntPtr(pUsnRecord.ToInt64() + usn.RecordLength);
-                    outBytesReturned -= usn.RecordLength;
+                    do
+                    {
+                        Marshal.StructureToPtr(input.StartFileReferenceNumber, inBuffer, true);
+
+                        uint outBytesReturned;
+
+                        hasData = PInvoke.DeviceIoControl(
+                            volume.DangerousGetHandle(),
+                            DeviceIoControlCode.FsctlEnumUsnData,
+                            inBuffer,
+                            Marshal.SizeOf<MFT_ENUM_DATA_V0>(),
+                            outBuffer,
+                            outputBufferSize,
+                            out outBytesReturned,
+                            IntPtr.Zero
+                        );
+
+
+                        var pUsnRecord = new IntPtr(outBuffer.DangerousGetHandle().ToInt64() + sizeof(Int64));
+
+                        //61 is the minimum record length. Less than that is left-over space on the buffer
+                        while (outBytesReturned > 60)
+                        {
+                            var usn = new USN_RECORD(pUsnRecord);
+
+                            if (0 != (usn.FileAttributes & FileAttributeDirectory))
+                            {
+                                //Directory
+                                _directories.Add(usn.FileReferenceNumber, new UsnRefsAndFileName
+                                {
+                                    FileName = usn.FileName,
+                                    ParentFileReferenceNumber = usn.ParentFileReferenceNumber,
+                                    FileReferenceNumber = usn.FileReferenceNumber
+                                });
+                            }
+                            else
+                            {
+                                //Files
+                                _files.Add(usn.FileReferenceNumber, new UsnRefsAndFileName
+                                {
+                                    FileName = usn.FileName,
+                                    ParentFileReferenceNumber = usn.ParentFileReferenceNumber,
+                                    FileReferenceNumber = usn.FileReferenceNumber
+                                });
+                            }
+
+                            pUsnRecord = new IntPtr(pUsnRecord.ToInt64() + usn.RecordLength);
+                            outBytesReturned -= usn.RecordLength;
+                        }
+
+                        input.StartFileReferenceNumber = (ulong)Marshal.ReadInt64(outBuffer, 0);
+                    } while (hasData);
+
                 }
+                ParseFullPath();
+            }
+        }
 
-                input.StartFileReferenceNumber = (ulong)Marshal.ReadInt64(outBuffer, 0);
-            } while (hasData);
-
-            Marshal.FreeHGlobal(outBuffer);
-            Marshal.FreeHGlobal(inBuffer);
-
-
-            sw.Stop();
-            Console.WriteLine("Elapsed: {0}", sw.Elapsed);
-            Console.WriteLine("Files: {0} \r\nDirectories: {1}", _files.Count, _directories.Count);
-
-
-            sw.Restart();
-
-            var filenames = new HashSet<string>();
-            var fileInfos = new HashSet<FileInfo>();
-
+        private void ParseFullPath()
+        {
             foreach (var item in _files)
             {
                 var stack = new Stack<string>();
@@ -177,17 +160,9 @@ namespace SearchSharp.Storage.NTFS
                     parentRef = parentUsn.ParentFileReferenceNumber;
                 }
                 stack.Push(_driveLetter + ":");
-                var fn = String.Join("\\", stack.ToArray());
-                filenames.Add(fn);
-                fileInfos.Add(new FileInfo(fn));
-
+                var fn = string.Join("\\", stack.ToArray());
+                _fileInfos.Add(new FileInfo(fn));
             }
-
-            sw.Stop();
-
-            Console.WriteLine("Elapsed: {0}", sw.Elapsed);
-
-            return true;
         }
 
         private SafeFileHandle GetVolumeHandle(string pathToVolume)
